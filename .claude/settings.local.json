@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue)",
+      "PowerShell(try { Invoke-WebRequest -Uri \"http://127.0.0.1:5000/\" -TimeoutSec 3 -UseBasicParsing | Select-Object StatusCode } catch { \"无法连接: $_\" })",
+      "PowerShell($r = Invoke-WebRequest -Uri \"http://127.0.0.1:5000/\" -TimeoutSec 3 -UseBasicParsing -ErrorAction SilentlyContinue; if \\($r\\) { \"Status: $\\($r.StatusCode\\)\" } else { \"无法连接\" })",
+      "PowerShell(4984,13968,12684,25232 | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue })",
+      "PowerShell(Get-Process -Id 13968 -ErrorAction SilentlyContinue)",
+      "PowerShell($r = Invoke-WebRequest -Uri \"http://127.0.0.1:5000/\" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue; if \\($r\\) { \"端口 5000 仍有服务响应 \\(Status: $\\($r.StatusCode\\)\\)\" } else { \"端口 5000 无响应\" })",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue | Select-Object LocalPort, OwningProcess, @{N='ProcessName';E={\\(Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue\\).ProcessName}})",
+      "PowerShell(Start-Sleep -Seconds 3; $r = Invoke-WebRequest -Uri \"http://127.0.0.1:5000/\" -TimeoutSec 3 -UseBasicParsing -ErrorAction SilentlyContinue; if \\($r\\) { \"服务已启动，Status: $\\($r.StatusCode\\)\" } else { \"启动失败\" })",
+      "PowerShell(Get-Process -Id 20188,15940 -ErrorAction SilentlyContinue)",
+      "PowerShell(foreach \\($p in @\\(20188, 15940, 13968\\)\\) { $proc = Get-Process -Id $p -ErrorAction SilentlyContinue; if \\($proc\\) { Write-Host \"PID $p : $\\($proc.ProcessName\\) 启动时间=$\\($proc.StartTime\\)\" } else { Write-Host \"PID $p : 进程不存在（僵尸条目）\" } })",
+      "PowerShell(Stop-Process -Force)",
+      "PowerShell(Get-Process -Id 20188 -ErrorAction SilentlyContinue)",
+      "PowerShell(python \"D:\\\\.claude\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"utility tool document processing professional clean functional\" --design-system -p \"PDF Report Tool\")",
+      "PowerShell(python \"D:\\\\.claude\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"form loading feedback\" --domain ux -n 5)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\xu\\\\Desktop\\\\test2\\\\\" | ForEach-Object { $_.FullName })",
+      "PowerShell(python d:\\\\cursorProject\\\\auto-v2\\\\debug_table.py 2>&1)",
+      "PowerShell(python d:\\\\cursorProject\\\\auto-v2\\\\debug_table.py 2>$null)"
+    ]
+  }
+}

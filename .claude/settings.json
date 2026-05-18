@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(python -c \"from core.word_scanner import WordScanner; print\\('Import OK'\\)\")",
+      "PowerShell(python -c \"from core.word_scanner import WordScanner; print\\('mm:', WordScanner._is_unit_label\\('mm'\\)\\); print\\('cm:', WordScanner._is_unit_label\\('cm'\\)\\); print\\('g/m2:', WordScanner._is_unit_label\\('g/m2'\\)\\); print\\('N:', WordScanner._is_unit_label\\('N'\\)\\); print\\('˿��:', WordScanner._is_unit_label\\('˿��'\\)\\)\")",
+      "PowerShell(python -c \"import py_compile; py_compile.compile\\(r'core\\\\word_scanner.py', doraise=True\\); print\\('OK'\\)\")"
+    ]
+  }
+}

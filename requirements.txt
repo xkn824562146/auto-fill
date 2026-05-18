@@ -1,0 +1,8 @@
+python-docx
+PyMuPDF
+flask
+pyyaml
+openai
+thefuzz
+python-Levenshtein
+pywin32

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 智能提取与回填</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0891B2;
+            --primary-light: #ECFEFF;
+            --primary-dark: #164E63;
+            --cta: #22C55E;
+            --cta-hover: #16A34A;
+            --bg: #F8FAFB;
+            --surface: #FFFFFF;
+            --border: #E2E8F0;
+            --text: #1E293B;
+            --text-muted: #64748B;
+            --error: #EF4444;
+            --radius: 8px;
+            --transition: 150ms ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "Inter", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+
+        /* Header */
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+        .header span { opacity: 0.7; font-weight: 400; margin-left: 8px; font-size: 13px; }
+
+        .container { max-width: 1280px; margin: 0 auto; padding: 20px 24px; }
+
+        /* Upload Area */
+        .upload-area {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+        .upload-row { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+        .upload-group { flex: 1; min-width: 200px; position: relative; padding-bottom: 20px; }
+        .upload-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .upload-group input[type="file"] {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--bg);
+            cursor: pointer;
+            transition: border-color var(--transition);
+        }
+        .upload-group input[type="file"]:hover { border-color: var(--primary); }
+        .upload-group input[type="file"]:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(8,145,178,0.1); }
+        .convert-status { position: absolute; bottom: 0; left: 0; font-size: 12px; font-weight: 500; }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            transition: all var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover:not(:disabled) { background: #0E7490; }
+        .btn-cta { background: var(--cta); color: white; }
+        .btn-cta:hover:not(:disabled) { background: var(--cta-hover); }
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+        /* Loading */
+        .loading { display: none; text-align: center; padding: 48px 16px; }
+        .loading.show { display: block; }
+        .spinner {
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading p { color: var(--text-muted); font-size: 14px; }
+
+        /* Error */
+        .error-msg {
+            color: var(--error);
+            background: #FEF2F2;
+            border: 1px solid #FECACA;
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-size: 13px;
+            display: none;
+            margin-top: 12px;
+        }
+        .error-msg.show { display: block; }
+
+        /* Result Area */
+        .result-area { display: none; margin-top: 20px; }
+        .result-area.show { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .panel-title {
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .panel-title small { text-transform: none; font-weight: 400; letter-spacing: 0; }
+
+        /* PDF Viewer */
+        .pdf-viewer {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            min-height: 420px;
+            overflow: auto;
+        }
+        .pdf-viewer img { max-width: 100%; max-height: 100%; border-radius: 4px; }
+        .pdf-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        #pageInfo { font-size: 13px; color: var(--text-muted); min-width: 60px; text-align: center; }
+
+        /* Field List */
+        .field-list {
+            flex: 1;
+            padding: 12px 16px;
+            overflow-y: auto;
+        }
+        .field-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 0;
+            border-bottom: 1px solid #F1F5F9;
+        }
+        .field-item:last-child { border-bottom: none; }
+        .field-label {
+            min-width: 160px;
+            max-width: 200px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-align: right;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+        .field-value {
+            flex: 1;
+            padding: 7px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            color: var(--text);
+            min-width: 0;
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+        .field-value:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(8,145,178,0.1); }
+        .field-value.field-null { color: var(--text-muted); font-style: italic; background: #F8FAFB; }
+
+        /* Actions */
+        .panel-actions {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        /* Log */
+        .log-area {
+            margin-top: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            display: none;
+            overflow: hidden;
+        }
+        .log-area.show { display: block; }
+        .log-content { padding: 12px 16px; max-height: 200px; overflow-y: auto; }
+        .log-line { padding: 3px 0; font-family: "SF Mono", "Consolas", monospace; font-size: 12px; color: var(--text-muted); }
+        .log-line.success { color: var(--cta); }
+        .log-line.error { color: var(--error); }
+        .log-line.skip { color: #94A3B8; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .result-area.show { grid-template-columns: 1fr; }
+            .upload-row { flex-direction: column; align-items: stretch; }
+            .upload-group { min-width: 100%; }
+            .btn { width: 100%; justify-content: center; }
+            .field-label { min-width: 100px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">PDF 智能提取与回填 <span>Word 模板驱动</span></div>
+    <div class="container">
+        <!-- Upload -->
+        <div class="upload-area">
+            <div class="upload-row">
+                <div class="upload-group">
+                    <label>PDF 检验报告</label>
+                    <input type="file" id="pdfInput" accept=".pdf">
+                </div>
+                <div class="upload-group">
+                    <label>Word 模板</label>
+                    <input type="file" id="wordInput" accept=".doc,.docx">
+                    <div id="convertStatus" class="convert-status" style="display:none;"></div>
+                </div>
+                <button class="btn btn-primary" id="uploadBtn" onclick="doUpload()" disabled>开始提取</button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在扫描 Word 模板并调用 AI 提取数据，请稍候...</p>
+        </div>
+
+        <!-- Error -->
+        <div class="error-msg" id="errorMsg"></div>
+
+        <!-- Result -->
+        <div class="result-area" id="resultArea">
+            <div class="panel">
+                <div class="panel-title">PDF 预览</div>
+                <div class="pdf-viewer">
+                    <img id="pdfImage" src="" alt="PDF 页面预览">
+                </div>
+                <div class="pdf-nav">
+                    <button class="btn btn-ghost" onclick="prevPage()">上一页</button>
+                    <span id="pageInfo">1 / 1</span>
+                    <button class="btn btn-ghost" onclick="nextPage()">下一页</button>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-title">AI 提取结果 <small>（可编辑修正）</small></div>
+                <div class="field-list" id="fieldList"></div>
+                <div class="panel-actions">
+                    <button class="btn btn-cta" id="confirmBtn" onclick="doConfirm()">确认填充</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log -->
+        <div class="log-area" id="logArea">
+            <div class="panel-title">填充日志</div>
+            <div class="log-content" id="logContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentJobId = null;
+        let currentPage = 0;
+        let totalPages = 0;
+        let convertedDocxFile = null;
+
+        document.getElementById("wordInput").addEventListener("change", async function() {
+            const file = this.files[0];
+            const status = document.getElementById("convertStatus");
+
+            if (!file) {
+                convertedDocxFile = null;
+                checkUploadReady();
+                return;
+            }
+
+            if (file.name.toLowerCase().endsWith(".doc") && !file.name.toLowerCase().endsWith(".docx")) {
+                status.style.display = "block";
+                status.style.color = "var(--primary)";
+                status.textContent = "正在转换 .doc 文件...";
+
+                try {
+                    const fd = new FormData();
+                    fd.append("word", file);
+                    const resp = await fetch("/convert_doc", { method: "POST", body: fd });
+                    const data = await resp.json();
+
+                    if (!resp.ok || data.error) {
+                        status.style.color = "var(--error)";
+                        status.textContent = "转换失败: " + (data.error || "未知错误");
+                        convertedDocxFile = null;
+                        checkUploadReady();
+                        return;
+                    }
+
+                    convertedDocxFile = { job_id: data.job_id, filename: data.docx_filename };
+                    status.style.color = "var(--cta)";
+                    status.textContent = "转换完成";
+                } catch (e) {
+                    status.style.color = "var(--error)";
+                    status.textContent = "转换失败: " + e.message;
+                    convertedDocxFile = null;
+                }
+            } else {
+                status.style.display = "none";
+                convertedDocxFile = null;
+            }
+            checkUploadReady();
+        });
+
+        document.getElementById("pdfInput").addEventListener("change", checkUploadReady);
+
+        function checkUploadReady() {
+            const pdf = document.getElementById("pdfInput").files[0];
+            const word = document.getElementById("wordInput").files[0];
+            const btn = document.getElementById("uploadBtn");
+
+            if (pdf && word) {
+                if (word.name.toLowerCase().endsWith(".docx")) btn.disabled = false;
+                else if (convertedDocxFile) btn.disabled = false;
+                else btn.disabled = true;
+            } else {
+                btn.disabled = true;
+            }
+        }
+
+        async function doUpload() {
+            const pdfInput = document.getElementById("pdfInput");
+            const wordInput = document.getElementById("wordInput");
+
+            if (!pdfInput.files[0] || !wordInput.files[0]) {
+                showError("请选择 PDF 和 Word 文件");
+                return;
+            }
+
+            const fd = new FormData();
+            fd.append("pdf", pdfInput.files[0]);
+            if (convertedDocxFile) {
+                fd.append("word_job_id", convertedDocxFile.job_id);
+                fd.append("word_filename", convertedDocxFile.filename);
+            } else {
+                fd.append("word", wordInput.files[0]);
+            }
+
+            showLoading(true);
+            hideError();
+
+            try {
+                const resp = await fetch("/upload", { method: "POST", body: fd });
+                if (!resp.ok) {
+                    showError(`服务器错误 (${resp.status}): ${(await resp.text()).substring(0, 200)}`);
+                    return;
+                }
+                const data = await resp.json();
+                if (data.error) { showError(data.error); return; }
+
+                currentJobId = data.job_id;
+                currentPage = 0;
+
+                const pagesResp = await fetch(`/pdf_pages/${currentJobId}`);
+                if (!pagesResp.ok) { showError("获取 PDF 页数失败"); return; }
+                totalPages = (await pagesResp.json()).pages;
+
+                loadPage(0);
+                renderFields(data.fields);
+                document.getElementById("resultArea").classList.add("show");
+            } catch (e) {
+                showError("请求失败: " + e.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function renderFields(fields) {
+            const list = document.getElementById("fieldList");
+            list.innerHTML = "";
+
+            for (const [label, value] of Object.entries(fields)) {
+                const item = document.createElement("div");
+                item.className = "field-item";
+
+                const lbl = document.createElement("span");
+                lbl.className = "field-label";
+                lbl.textContent = label + ":";
+
+                const input = document.createElement("input");
+                input.className = "field-value";
+                input.type = "text";
+                input.name = label;
+                input.value = value || "";
+                if (!value) {
+                    input.placeholder = "未找到";
+                    input.classList.add("field-null");
+                }
+
+                item.appendChild(lbl);
+                item.appendChild(input);
+                list.appendChild(item);
+            }
+        }
+
+        function loadPage(page) {
+            if (page < 0 || page >= totalPages) return;
+            currentPage = page;
+            document.getElementById("pdfImage").src = `/pdf_image/${currentJobId}/${page}`;
+            document.getElementById("pageInfo").textContent = `${page + 1} / ${totalPages}`;
+        }
+
+        function prevPage() { loadPage(currentPage - 1); }
+        function nextPage() { loadPage(currentPage + 1); }
+
+        async function doConfirm() {
+            const inputs = document.querySelectorAll(".field-value");
+            const fields = {};
+            inputs.forEach(inp => { fields[inp.name] = inp.value || null; });
+
+            const btn = document.getElementById("confirmBtn");
+            btn.disabled = true;
+            btn.textContent = "填充中...";
+
+            try {
+                const resp = await fetch("/confirm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ job_id: currentJobId, fields }),
+                });
+                if (!resp.ok) {
+                    showError(`服务器错误 (${resp.status}): ${(await resp.text()).substring(0, 200)}`);
+                    return;
+                }
+                const data = await resp.json();
+                if (data.error) { showError(data.error); return; }
+
+                const logContent = document.getElementById("logContent");
+                logContent.innerHTML = "";
+                data.logs.forEach(line => {
+                    const div = document.createElement("div");
+                    div.className = "log-line";
+                    if (line.startsWith("填充")) div.classList.add("success");
+                    else if (line.startsWith("错误")) div.classList.add("error");
+                    else if (line.startsWith("跳过")) div.classList.add("skip");
+                    div.textContent = line;
+                    logContent.appendChild(div);
+                });
+                document.getElementById("logArea").classList.add("show");
+                window.location.href = data.download_url;
+            } catch (e) {
+                showError("请求失败: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "确认填充";
+            }
+        }
+
+        function showLoading(show) {
+            document.getElementById("loading").classList.toggle("show", show);
+            if (show) document.getElementById("uploadBtn").disabled = true;
+            else checkUploadReady();
+        }
+
+        function showError(msg) {
+            const el = document.getElementById("errorMsg");
+            el.textContent = msg;
+            el.classList.add("show");
+        }
+        function hideError() {
+            document.getElementById("errorMsg").classList.remove("show");
+        }
+    </script>
+</body>
+</html>
